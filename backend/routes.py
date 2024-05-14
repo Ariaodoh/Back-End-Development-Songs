@@ -69,17 +69,31 @@ def count():
 
 @app.route("/song")
 def songs():
-    """returns all songs in songs collection"""
-    all_songs = list(db.songs.find({}))  # Convert cursor to a list of documents
-    
-    # Handles case for no songs in collection
-    if not all_songs:
-        return jsonify(message="No songs found"), 404
+    """Returns all songs in the songs collection, properly formatted as JSON without _id fields."""
 
-    # Serialize each document to JSON format, handling ObjectId fields
-    #serialized_songs = [json_util.dumps(song) for song in all_songs]
-    return {"songs":f"{all_songs}"}, 200  # Pass a dictionary to jsonify
-    #return {"songs": parse_json(results)}, 200
+    try:
+        # Fetch all songs from the database
+        all_songs = [song for song in db.songs.find({})]
+
+        # Serialize all songs to JSON
+        serialized_songs = [json.dumps(song, default=str) for song in all_songs]
+
+        # Remove _id key-value pairs from each serialized song string
+        songs_without_id = [json.loads(song) for song in serialized_songs]
+        for song in songs_without_id:
+            song.pop('_id', None)
+
+        # Handle the case of no songs in the collection
+        if not songs_without_id:
+            return jsonify(message="No songs found"), 404
+
+        # Return a well-formatted JSON response without _id fields
+        return jsonify({"songs": songs_without_id}), 200
+
+    except Exception as e:
+        # Handle potential exceptions gracefully
+        print(f"An error occurred while fetching songs: {e}")
+        return jsonify(message="Internal server error"), 500
 
 
 @app.route("/song/<int:id>", methods=["GET"])
